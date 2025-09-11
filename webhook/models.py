@@ -89,7 +89,8 @@ class Response(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Response to {self.message.content[:50]}..."
+        # الاعتماد على __str__ لنموذج Message لتجنب الأخطاء
+        return f"Response to {self.message}" if self.message else "Response to a deleted message"
 
 # هذا النموذج لتخزين أجزاء قاعدة المعرفة (knowledge base chunks) وتضميناتها (embeddings)
 class KnowledgeBaseChunk(models.Model):

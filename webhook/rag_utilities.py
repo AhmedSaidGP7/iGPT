@@ -1,9 +1,14 @@
 import numpy as np
 import json
 import requests
+import io
+import base64
+import tempfile
+import os
 from openai import OpenAI
+from pydub import AudioSegment
 from django.conf import settings
-from .models import KnowledgeBaseChunk
+from knowledge.models import KnowledgeBase
 
 # Initialize OpenAI client with API key from settings
 openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
@@ -25,21 +30,12 @@ def get_embeddings(text):
 def find_most_similar_question(user_embedding, knowledge_base, top_n=3):
     """
     Finds the most similar questions in the knowledge base to the user's question.
-    
-    Args:
-        user_embedding (list): The embedding vector of the user's question.
-        knowledge_base (QuerySet): A Django QuerySet of KnowledgeBase objects.
-        top_n (int): The number of most similar questions to return.
-        
-    Returns:
-        list: A list of tuples, where each tuple contains (similarity_score, KnowledgeBase_object).
     """
     user_embedding_np = np.array(user_embedding)
     similarities = []
     for item in knowledge_base:
         try:
-            # Use json.loads instead of eval for security
-            db_embedding_np = np.array(json.loads(item.embedding_vector))
+            db_embedding_np = np.array(json.loads(item.embedding))
             similarity = np.dot(user_embedding_np, db_embedding_np) / (np.linalg.norm(user_embedding_np) * np.linalg.norm(db_embedding_np))
             similarities.append((similarity, item))
         except (json.JSONDecodeError, TypeError) as e:
@@ -53,20 +49,10 @@ def find_most_similar_question(user_embedding, knowledge_base, top_n=3):
 def generate_answer(user_question, context_questions, history=None):
     """
     Generates an answer using the provided context and conversation history.
-    
-    Args:
-        user_question (str): The user's new question.
-        context_questions (list): A list of relevant questions from the knowledge base to use as context.
-        api_key (str): The OpenAI API key.
-        history (list): A list of previous messages in the conversation for context.
-        
-    Returns:
-        str: The generated answer.
     """
-    client = openai_client
     
     # Construct the prompt with context from knowledge base
-    context_text = "\n".join(context_questions)
+    context_text = "\n".join([item[1].question for item in context_questions])
     
     system_prompt = (
         "You are an AI assistant specialized in providing comprehensive answers based on the provided "
@@ -84,16 +70,11 @@ def generate_answer(user_question, context_questions, history=None):
     if history:
         messages.extend(history)
         
-    # Add the current user question only if it's not empty
-    if user_question:
-        messages.append({"role": "user", "content": user_question})
-    else:
-        # If the user's question is empty, provide a default response
-        # to avoid the API error.
-        messages.append({"role": "user", "content": "The user did not provide a text message. Please ask them to try again."})
+    # Add the current user question
+    messages.append({"role": "user", "content": user_question})
     
     try:
-        response = client.chat.completions.create(
+        response = openai_client.chat.completions.create(
             model="gpt-4o",  # You can change this to a different model if needed
             messages=messages,
             temperature=0.7,
@@ -106,3 +87,68 @@ def generate_answer(user_question, context_questions, history=None):
     except Exception as e:
         print(f"Error generating answer: {e}")
         return "Sorry, there was an error processing your request."
+
+def transcribe_audio_from_url(audio_url):
+    """
+    Downloads and transcribes an audio file from a given URL.
+    """
+    try:
+        response = requests.get(audio_url)
+        response.raise_for_status()
+        audio_bytes = response.content
+        
+        # Use an in-memory file to handle the audio data
+        audio_file_io = io.BytesIO(audio_bytes)
+        audio_file_io.name = "audio.ogg"
+            
+        # Transcribe the audio file directly from memory
+        transcription = openai_client.audio.transcriptions.create(
+            model="whisper-1", 
+            file=audio_file_io,
+            language="ar"
+        )
+        return transcription.text
+            
+    except requests.exceptions.RequestException as e:
+        print(f"Error downloading audio from URL: {e}")
+        return None
+    except Exception as e:
+        print(f"Error transcribing audio from URL: {e}")
+        return None
+
+
+def transcribe_audio_from_base64(base64_audio, mimetype="audio/ogg"):
+    """
+    Decodes a base64 audio string and transcribes it using OpenAI's Whisper API.
+    """
+    try:
+        # Decode the base64 string
+        audio_data = base64.b64decode(base64_audio)
+        
+        # Determine file extension from mimetype
+        ext = mimetype.split("/")[-1].split(";")[0]
+
+        # Use pydub to load the audio from memory
+        audio_segment = AudioSegment.from_file(io.BytesIO(audio_data), format=ext)
+        
+        # Create a temporary file to convert to a format that Whisper prefers (like mp3 or wav)
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_audio:
+            audio_segment.export(temp_audio.name, format="mp3")
+            temp_audio_path = temp_audio.name
+            
+        # Transcribe the converted audio file
+        with open(temp_audio_path, "rb") as audio_file:
+            transcription = openai_client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_file,
+                language="ar"
+            )
+        
+        # Clean up the temporary file
+        os.remove(temp_audio_path)
+
+        return transcription.text
+
+    except Exception as e:
+        print(f"❌ Error transcribing audio from base64: {e}")
+        return "عذراً، حدث خطأ أثناء معالجة الرسالة الصوتية. هل يمكنك كتابة سؤالك بدلاً من ذلك؟"
