@@ -21,13 +21,14 @@ DEBOUNCE_TIME = 2  # فترة انتظار بالثانية لتجميع الر�
 _user_buffers = {}  # قاموس لتخزين الرسائل المؤقتة لكل مستخدم
 
 # Utility function to send a message back to the client
-# ✅ التعديل هنا: دالة الإرسال تستقبل المعرفات
-def send_message_to_client(jid, text, instance_id, evolution_key):
+# ✅ التعديل الأول: دالة الإرسال تستقبل server_url
+def send_message_to_client(jid, text, instance_id, evolution_key, server_url):
     """
-    يرسل رسالة نصية إلى العميل باستخدام معرف الحالة والمفتاح الخاص بها.
+    يرسل رسالة نصية إلى العميل باستخدام معرف الحالة والمفتاح والخادم الصحيح.
     """
     try:
-        url = f"{settings.SERVER_URL}/message/sendText/{instance_id}"
+        # ✅ التعديل الثاني: استخدام server_url المستخلص بدلاً من settings.SERVER_URL
+        url = f"{server_url}/message/sendText/{instance_id}"
         headers = {
             "apikey": evolution_key,
             "Content-Type": "application/json"
@@ -42,20 +43,18 @@ def send_message_to_client(jid, text, instance_id, evolution_key):
         response = requests.post(url, json=payload, headers=headers)
         response.raise_for_status()
         
-        logger.info(f"Message sent successfully to {jid} using instance {instance_id}.")
+        logger.info(f"Message sent successfully to {jid} using instance {instance_id} on {server_url}.")
         return response.json()
         
     except requests.exceptions.RequestException as e:
         logger.error(f"Error sending message to {jid}: {e}")
         return None
 
-# ✅ التعديل هنا: دالة المعالجة تستقبل المعرفات أيضاً
-def _process_buffered_message(jid, instance_id, evolution_key):
+# ✅ التعديل الثالث: دالة المعالجة تستقبل server_url أيضاً
+def _process_buffered_message(jid, instance_id, evolution_key, server_url):
     """
     يقوم بمعالجة الرسالة المجمعة بعد انتهاء فترة الـ debounce وإرسال الرد.
     """
-    # ✅ التعديل هنا: يجب استخدام مفتاح مركب للـ buffer إذا كنا سنعتمد على المعرفات من الداخل
-    # لكن بما أننا نمررها كـ args، سنقوم بحذفها من الـ buffer بعد استخدامها
     buffer_key = f"{jid}:{instance_id}" # استخدام مفتاح مركب لضمان فصل الأرقام
     
     if buffer_key not in _user_buffers:
@@ -79,7 +78,6 @@ def _process_buffered_message(jid, instance_id, evolution_key):
 
         # 🔹 conversation history
         conversation_history = []
-        # تم تعديل هذا الجزء ليتوافق مع الـ RAG Utilities المعدل
         messages = Message.objects.filter(client=client).order_by('-timestamp')[:5]
         for msg in reversed(messages):
             if msg.content:
@@ -94,7 +92,6 @@ def _process_buffered_message(jid, instance_id, evolution_key):
         knowledge_base_chunks = list(KnowledgeBase.objects.all())
         user_embedding = get_embeddings(user_message.content)
         similar_questions_info = find_most_similar_question(user_embedding, knowledge_base_chunks)
-        # item[1].question بدلاً من [item[1].question for item in similar_questions_info]
         context_questions = [item[1].question for item in similar_questions_info]
         
         # 🔹 generate AI reply
@@ -106,8 +103,8 @@ def _process_buffered_message(jid, instance_id, evolution_key):
 
         Response.objects.create(message=user_message, content=reply_text)
         
-        # ✅ التعديل هنا: تمرير المعرفات المستخلصة عند إرسال الرد
-        send_message_to_client(jid, reply_text, instance_id, evolution_key)
+        # ✅ التعديل الرابع: تمرير server_url عند إرسال الرد
+        send_message_to_client(jid, reply_text, instance_id, evolution_key, server_url)
         
     except Exception as e:
         logger.error(f"An error occurred while processing buffered message for {jid}: {e}", exc_info=True)
@@ -125,12 +122,14 @@ def webhook(request):
 
         event = request_body.get('event')
         
-        # ✅ التعديل هنا: استخراج instance_id و evolution_key من الـ payload
+        # ✅ التعديل الخامس: استخراج server_url من الـ payload
         instance_id = request_body.get('instance')
         evolution_key = request_body.get('apikey')
+        server_url = request_body.get('server_url') # استخلاص Server URL
         
-        if not instance_id or not evolution_key:
-             logger.error("Instance ID or API Key not found in webhook payload.")
+        # ✅ التعديل السادس: تحديث فحص البيانات المفقودة
+        if not instance_id or not evolution_key or not server_url:
+             logger.error("Instance ID, API Key, or Server URL not found in webhook payload.")
              return JsonResponse({'status': 'error', 'message': 'Missing instance data'}, status=400)
 
         if event != 'messages.upsert' or request_body.get('data', {}).get('key', {}).get('fromMe', False):
@@ -198,16 +197,17 @@ def webhook(request):
                 'content': user_message_content,
                 'message_type': message_type,
                 'image_url': image_url,
-                # ✅ التعديل هنا: حفظ المعرفات داخل الـ buffer
+                # ✅ التعديل السابع: حفظ server_url داخل الـ buffer
                 'instance_id': instance_id,
-                'evolution_key': evolution_key
+                'evolution_key': evolution_key,
+                'server_url': server_url
             }
 
-        # ✅ التعديل هنا: تمرير المعرفات عند بدء الـ timer
+        # ✅ التعديل الثامن: تمرير server_url عند بدء الـ timer
         new_timer = threading.Timer(
             DEBOUNCE_TIME, 
             _process_buffered_message, 
-            args=[jid, instance_id, evolution_key]
+            args=[jid, instance_id, evolution_key, server_url]
         )
         new_timer.start()
         _user_buffers[buffer_key]['timer'] = new_timer
