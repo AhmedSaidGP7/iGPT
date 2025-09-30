@@ -1,0 +1,8 @@
+Django==5.2.6
+python-dotenv
+gunicorn
+openai
+requests
+pydub
+numpy
+psycopg2-binary  # لو هتستخدم PostgreSQL

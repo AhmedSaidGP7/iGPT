@@ -35,7 +35,12 @@ def find_most_similar_question(user_embedding, knowledge_base, top_n=3):
     similarities = []
     for item in knowledge_base:
         try:
-            db_embedding_np = np.array(json.loads(item.embedding))
+            # Handle potential JSON strings from database
+            if isinstance(item.embedding, str):
+                db_embedding_np = np.array(json.loads(item.embedding))
+            else:
+                db_embedding_np = np.array(item.embedding)
+                
             similarity = np.dot(user_embedding_np, db_embedding_np) / (np.linalg.norm(user_embedding_np) * np.linalg.norm(db_embedding_np))
             similarities.append((similarity, item))
         except (json.JSONDecodeError, TypeError) as e:
@@ -51,13 +56,27 @@ def generate_answer(user_question, context_questions, history=None):
     Generates an answer using the provided context and conversation history.
     """
     
-    # Construct the prompt with context from knowledge base
-    context_text = "\n".join([item[1].question for item in context_questions])
+    # ✅ تم التعديل: `context_questions` أصبح قائمة من النصوص مباشرة
+    context_text = "\n".join(context_questions)
     
     system_prompt = (
-        "You are an AI assistant specialized in providing comprehensive answers based on the provided "
-        "knowledge base and conversation history. Use the information to answer the user's question. "
-        "If the information is not sufficient, state that you cannot provide a full answer based on the given context."
+         """
+         انتِ عائشة. ممثلة خدمة العملاء الخاصة بالدكتور محمد سعيد, شخص يتحدث بالعامية, وتتسمي بالتعاطف.
+         لدينا منتجان رئيسيان, الكشف السريري (الحضوري) في العيادات, وباقات المتابعة الصحية عبر الواتس اب او هاتفيًا والتي تهدف لتحسين اسلوب الحياة. التواصل مع الدكتور يكون عن طريق باقات التواصل, بينما العيادات للشكف السريري.
+         اياكي ثم اياكي ان تقومي بإعطاء معلومات غير مذكورة في السياق.
+سلوكك:
+1. لو العميل بدأ بالشكوى الصحية:
+   1.1 - عبّري بتعاطف حقيقي وعميق, وذلك في حال كان التعاطف هو السلوك المناسب فقط, يتضمن التعاطاف reflective listening   واطلبي الاسم والبلد إذا لم يُقدّموا مسبقًا.
+   1.2 - بعد توفر الاسم والبلد، نادِه باسمه وطمئنيه بأن الدكتور قام بالمساعدة على تحسين الحالة الصحية لحالات مشابهة, ولكن يجب ان يتطلع على الحالة ويستمع إليها اولًا حتى يستطيع تصميم حمية مناسبة, ثم اقترحي عليها عرض باقات المتابعة المتاحة لذلك
+   1.3 - بعد توفر الاسم والبلد، نادِه باسمه وارسلي الباقات المناسبة حرفيًا بالكامل بدون اقتصاص او تعديل.
+   1.4 - بعد اختيار الباقة، اسأليه عن طرق الدفع، وارسلي طريقة الدفع الخاصة ببلده أو PayPal إذا لم توجد.
+   1.5 - بعد الدفع، طلبي الاسم الكامل، رقم الهاتف، البريد، رقم التحويل، وصورة الإيصال، وتحققي من استلام كل البيانات.
+   1.6 - عند استلام الإيصال، أرسلي رسالة بتأكيد استلام الدفع وتواصل فريق الحسابات.
+   لا تقومي ابدا بتأليف معلومات لم يتم ذكرها في السياق.
+
+2. إذا لم يبدأ العميل بالشكوى الصحية:
+   - ردّي فقط على أسئلته دون اتباع التسلسل الكامل.
+"""
     )
     
     # Combine all messages for the API call
@@ -75,10 +94,9 @@ def generate_answer(user_question, context_questions, history=None):
     
     try:
         response = openai_client.chat.completions.create(
-            model="gpt-4o",  # You can change this to a different model if needed
+            model="gpt-4.1-mini",  # You can change this to a different model if needed
             messages=messages,
             temperature=0.7,
-            max_tokens=256,
             top_p=1,
             frequency_penalty=0,
             presence_penalty=0

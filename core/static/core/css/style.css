@@ -1,0 +1,38 @@
+/* Global style */
+a,h1,h2,h3,h4,h5,h6,p,button,label,div,span{
+    font-family: "Cairo", sans-serif !important;
+}
+
+
+
+.text-right
+{
+    text-align: right !important;
+    
+}
+
+
+input {
+    text-align: start !important;
+}
+
+
+.available-rooms-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px; /* تقليل المسافات بين الأزرار */
+    justify-content: start; /* جعل الأزرار تصطف بشكل مرتب */
+}
+
+.available-room-btn {
+    padding: 10px 15px;
+    font-size: 16px;
+    border-radius: 8px;
+    transition: 0.3s;
+    margin-right: 10px !important;
+}
+
+.available-room-btn:hover {
+    background-color: #4a67ff;
+    color: white;
+}

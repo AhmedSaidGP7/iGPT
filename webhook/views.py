@@ -17,7 +17,7 @@ from knowledge.models import KnowledgeBase
 logger = logging.getLogger(__name__)
 
 # ✅ Debounce configuration
-DEBOUNCE_TIME = 10  # فترة انتظار بالثانية لتجميع الرسائل
+DEBOUNCE_TIME = 2  # فترة انتظار بالثانية لتجميع الرسائل
 _user_buffers = {}  # قاموس لتخزين الرسائل المؤقتة لكل مستخدم
 
 # Utility function to send a message back to the client
@@ -31,7 +31,7 @@ def send_message_to_client(jid, text):
         payload = {
             "number": jid.split('@')[0],
             "text": text,
-            "delay": 8000,
+            "delay": 0, #8000
             "linkPreview": True,
         }
         
@@ -68,12 +68,11 @@ def _process_buffered_message(jid):
             message_type=message_type,
             content=user_message_content,
             image_url=image_url,
-            # voice_note_url=voice_note_url # ❌ تم إزالة هذا السطر
         )
 
         # 🔹 conversation history
         conversation_history = []
-        messages = Message.objects.filter(client=client).order_by('-timestamp')[:5]
+        messages = Message.objects.filter(client=client).order_by('-timestamp')[:10]
         for msg in reversed(messages):
             if msg.content:
                 try:
