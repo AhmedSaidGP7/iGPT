@@ -1,0 +1,67 @@
+{% extends "NewRecruits/layout.html" %}
+{% load static %}
+{% block title %}
+تسجيل دخول
+{% endblock %}
+{% block body %}
+<div dir="rtl" class="account-pages my-5 pt-sm-5">
+    <div class="container">
+     <div class="row">
+      <div class="col-lg-12">
+       <div class="text-center d-flex justify-content-center">
+        <a class="mb-5 d-block auth-logo" href="index.html">
+         <img alt="" class="logo logo-dark" height="150" src="{% static 'NewRecruits/images/logo.png'%}">
+         <img alt="" class="logo logo-light" height="150" src="{% static 'NewRecruits/images/logo.png'%}">
+        </a>
+       </div>
+      </div>
+     </div>
+     <div class="row align-items-center justify-content-center">
+      <div class="col-md-8 col-lg-6 col-xl-5">
+       <div class="card">
+        <div class="card-body p-4">
+         <div class="text-center mt-2">
+          <h5 class="imtestingit text-primary">
+           مرحبا  بعودتك!
+          </h5>
+         </div>
+         <div class="p-2 mt-4"> 
+         {% if message %}
+            <div><p>{{message}}</p></div>
+            <br>
+          {% endif %} 
+                
+          <form action="{% url 'users:login' %}" method="POST">
+            {% csrf_token %}
+
+            {% if request.GET.next %}
+            <input type="hidden" name="next" value="{{request.GET.next}}">
+            {% endif %}
+           <div class="mb-3">
+            <label class="form-label" for="username">
+             اسم المستخدم
+            </label>
+            <input class="form-control" id="username" name="username" placeholder="ادخل اسم المستخدم" type="text">
+           </div>
+           <div class="mb-3">
+            <label class="form-label" for="userpassword">
+             كلمة المرور
+            </label>
+            <input class="form-control" id="userpassword" name="password" placeholder="ادخل كلمة المرور" type="password">
+           </div>
+           <div class="mt-3 text-end">
+            <button class="btn btn-primary w-sm waves-effect waves-light" type="submit">
+             دخول
+            </button>
+           </div>
+          </form>
+         </div>
+        </div>
+       </div>
+      </div>
+     </div>
+     <!-- end row -->
+    </div>
+    <!-- end container -->
+   </div>
+{% endblock %}

@@ -23,7 +23,7 @@ from django.conf import settings
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('webhook/', include('webhook.urls')),
-    # path('auth/', include("users.urls")),
+    path('auth/', include("users.urls")),
     path('', include("core.urls")),
     path('knowledge/', include("knowledge.urls")),
 
