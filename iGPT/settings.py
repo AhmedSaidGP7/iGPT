@@ -38,7 +38,7 @@ INSTANCE_ID = os.getenv('EVLUATION_INSTANCE_ID')
 DEBUG = True
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
-CSRF_TRUSTED_ORIGINS = os.getenv("ALLOWED_HOSTS", "").split(",")
+CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
 
 LOGIN_URL = 'users:login'
 
