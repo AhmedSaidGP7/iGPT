@@ -35,10 +35,12 @@ INSTANCE_ID = os.getenv('EVLUATION_INSTANCE_ID')
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
+CSRF_TRUSTED_ORIGINS = os.getenv("ALLOWED_HOSTS", "").split(",")
 
+LOGIN_URL = 'users:login'
 
 # Application definition
 
