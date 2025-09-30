@@ -1,0 +1,5 @@
+# nixpacks.toml
+
+[start]
+# نستخدم bash لتجميع الأوامر:
+cmd = "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn iGPT.wsgi:application"
