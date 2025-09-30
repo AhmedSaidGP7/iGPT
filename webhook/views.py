@@ -21,46 +21,53 @@ DEBOUNCE_TIME = 2  # فترة انتظار بالثانية لتجميع الر�
 _user_buffers = {}  # قاموس لتخزين الرسائل المؤقتة لكل مستخدم
 
 # Utility function to send a message back to the client
-def send_message_to_client(jid, text):
+# ✅ التعديل هنا: دالة الإرسال تستقبل المعرفات
+def send_message_to_client(jid, text, instance_id, evolution_key):
+    """
+    يرسل رسالة نصية إلى العميل باستخدام معرف الحالة والمفتاح الخاص بها.
+    """
     try:
-        url = f"{settings.SERVER_URL}/message/sendText/{settings.INSTANCE_ID}"
+        url = f"{settings.SERVER_URL}/message/sendText/{instance_id}"
         headers = {
-            "apikey": settings.EVOLUTION_KEY,
+            "apikey": evolution_key,
             "Content-Type": "application/json"
         }
         payload = {
             "number": jid.split('@')[0],
             "text": text,
-            "delay": 0, #8000
+            "delay": 0,
             "linkPreview": True,
         }
         
         response = requests.post(url, json=payload, headers=headers)
         response.raise_for_status()
         
-        logger.info(f"Message sent successfully to {jid}.")
+        logger.info(f"Message sent successfully to {jid} using instance {instance_id}.")
         return response.json()
         
     except requests.exceptions.RequestException as e:
         logger.error(f"Error sending message to {jid}: {e}")
         return None
 
-# ✅ New function to process the buffered message
-def _process_buffered_message(jid):
+# ✅ التعديل هنا: دالة المعالجة تستقبل المعرفات أيضاً
+def _process_buffered_message(jid, instance_id, evolution_key):
     """
-    يقوم بمعالجة الرسالة المجمعة بعد انتهاء فترة الـ debounce.
+    يقوم بمعالجة الرسالة المجمعة بعد انتهاء فترة الـ debounce وإرسال الرد.
     """
-    if jid not in _user_buffers:
+    # ✅ التعديل هنا: يجب استخدام مفتاح مركب للـ buffer إذا كنا سنعتمد على المعرفات من الداخل
+    # لكن بما أننا نمررها كـ args، سنقوم بحذفها من الـ buffer بعد استخدامها
+    buffer_key = f"{jid}:{instance_id}" # استخدام مفتاح مركب لضمان فصل الأرقام
+    
+    if buffer_key not in _user_buffers:
         return
         
-    user_message_content = _user_buffers[jid]['content']
-    message_type = _user_buffers[jid]['message_type']
-    image_url = _user_buffers[jid]['image_url']
-    # voice_note_url = _user_buffers[jid]['voice_note_url'] # ❌ تم إزالة هذا السطر
+    user_message_content = _user_buffers[buffer_key]['content']
+    message_type = _user_buffers[buffer_key]['message_type']
+    image_url = _user_buffers[buffer_key]['image_url']
     
-    del _user_buffers[jid]  # تفريغ الـ buffer بعد المعالجة
+    del _user_buffers[buffer_key]  # تفريغ الـ buffer بعد المعالجة
 
-    # Start of the main logic (copied from the original webhook function)
+    # Start of the main logic
     try:
         client = Client.objects.get(jid=jid)
         user_message = Message.objects.create(
@@ -72,7 +79,8 @@ def _process_buffered_message(jid):
 
         # 🔹 conversation history
         conversation_history = []
-        messages = Message.objects.filter(client=client).order_by('-timestamp')[:10]
+        # تم تعديل هذا الجزء ليتوافق مع الـ RAG Utilities المعدل
+        messages = Message.objects.filter(client=client).order_by('-timestamp')[:5]
         for msg in reversed(messages):
             if msg.content:
                 try:
@@ -86,6 +94,7 @@ def _process_buffered_message(jid):
         knowledge_base_chunks = list(KnowledgeBase.objects.all())
         user_embedding = get_embeddings(user_message.content)
         similar_questions_info = find_most_similar_question(user_embedding, knowledge_base_chunks)
+        # item[1].question بدلاً من [item[1].question for item in similar_questions_info]
         context_questions = [item[1].question for item in similar_questions_info]
         
         # 🔹 generate AI reply
@@ -96,7 +105,9 @@ def _process_buffered_message(jid):
         )
 
         Response.objects.create(message=user_message, content=reply_text)
-        send_message_to_client(jid, reply_text)
+        
+        # ✅ التعديل هنا: تمرير المعرفات المستخلصة عند إرسال الرد
+        send_message_to_client(jid, reply_text, instance_id, evolution_key)
         
     except Exception as e:
         logger.error(f"An error occurred while processing buffered message for {jid}: {e}", exc_info=True)
@@ -113,6 +124,15 @@ def webhook(request):
         print("📩 Incoming Webhook Payload:", json.dumps(request_body, indent=2, ensure_ascii=False))
 
         event = request_body.get('event')
+        
+        # ✅ التعديل هنا: استخراج instance_id و evolution_key من الـ payload
+        instance_id = request_body.get('instance')
+        evolution_key = request_body.get('apikey')
+        
+        if not instance_id or not evolution_key:
+             logger.error("Instance ID or API Key not found in webhook payload.")
+             return JsonResponse({'status': 'error', 'message': 'Missing instance data'}, status=400)
+
         if event != 'messages.upsert' or request_body.get('data', {}).get('key', {}).get('fromMe', False):
             return JsonResponse({'status': 'ignored', 'message': 'Event not processed'}, status=200)
 
@@ -126,6 +146,7 @@ def webhook(request):
             logger.error("JID not found in webhook data.")
             return JsonResponse({'status': 'error', 'message': 'JID not found'}, status=400)
 
+        # ... (Client setup remains the same)
         client, created = Client.objects.get_or_create(
             jid=jid,
             defaults={'name': push_name}
@@ -162,30 +183,39 @@ def webhook(request):
             logger.warning(f"Message type '{message_type}' has no valid text content.")
             return JsonResponse({'status': 'unsupported', 'message': 'Cannot process messages without text content at this time.'}, status=200)
             
-        # ✅ The new debounce logic starts here
-        if jid in _user_buffers and _user_buffers[jid]['timer'] and _user_buffers[jid]['timer'].is_alive():
+        # ✅ التعديل هنا: استخدام مفتاح مركب للـ buffer
+        buffer_key = f"{jid}:{instance_id}"
+
+        if buffer_key in _user_buffers and _user_buffers[buffer_key]['timer'] and _user_buffers[buffer_key]['timer'].is_alive():
             # إذا كان فيه رسالة سابقة، بنلغي الـ timer وبنضيف المحتوى للرسالة القديمة
             print("⏳ Debounce active: Appending new message content.")
-            _user_buffers[jid]['timer'].cancel()
-            _user_buffers[jid]['content'] += " " + user_message_content
+            _user_buffers[buffer_key]['timer'].cancel()
+            _user_buffers[buffer_key]['content'] += " " + user_message_content
         else:
             # لو دي أول رسالة أو الرسالة السابقة قديمة، بنبدأ رسالة جديدة في الـ buffer
             print("🚀 Starting new message buffer.")
-            _user_buffers[jid] = {
+            _user_buffers[buffer_key] = {
                 'content': user_message_content,
                 'message_type': message_type,
                 'image_url': image_url,
+                # ✅ التعديل هنا: حفظ المعرفات داخل الـ buffer
+                'instance_id': instance_id,
+                'evolution_key': evolution_key
             }
 
-        # بنبدأ timer جديد، عشان لو مفيش رسالة تانية جات في خلال DEBOUNCE_TIME، هيتم الرد
-        new_timer = threading.Timer(DEBOUNCE_TIME, _process_buffered_message, args=[jid])
+        # ✅ التعديل هنا: تمرير المعرفات عند بدء الـ timer
+        new_timer = threading.Timer(
+            DEBOUNCE_TIME, 
+            _process_buffered_message, 
+            args=[jid, instance_id, evolution_key]
+        )
         new_timer.start()
-        _user_buffers[jid]['timer'] = new_timer
+        _user_buffers[buffer_key]['timer'] = new_timer
 
         return JsonResponse({
             'status': 'success',
             'reply': 'Message received and waiting for more input (debounce active).',
-            'base64': None
+            'instance_id': instance_id
         })
     
     except json.JSONDecodeError as e:
