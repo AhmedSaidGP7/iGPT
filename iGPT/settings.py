@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'webhook',
     'knowledge',
     'core',
+    'users',
 ]
 
 MIDDLEWARE = [
