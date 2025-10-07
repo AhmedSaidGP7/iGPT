@@ -5,7 +5,12 @@ from datetime import datetime
 from django.contrib.auth.decorators import login_required
 from .models import *
 from .forms import KnowledgeBaseForm
-
+from webhook.rag_utilities import (
+    get_embeddings,
+    find_most_similar_question,
+    generate_answer,
+    transcribe_audio_from_base64,
+)
 # Create your views here.
 @login_required
 def faq(request):
