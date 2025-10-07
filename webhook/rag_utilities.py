@@ -95,7 +95,7 @@ def generate_answer(user_question, context_questions, history=None):
     
     try:
         response = openai_client.chat.completions.create(
-            model="gpt-4.1-mini",  # You can change this to a different model if needed
+            model="gpt-5-chat-latest",  # You can change this to a different model if needed
             messages=messages,
             temperature=0.7,
             top_p=1,
