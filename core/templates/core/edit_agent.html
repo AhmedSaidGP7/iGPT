@@ -1,0 +1,101 @@
+{% extends "core/layout.html" %}
+{% load static %}
+{% block title %}
+تعديل وكيل
+{% endblock %}
+
+{% block body %}
+<div class="main-content">
+    <div class="page-content">
+        <div class="container-fluid">
+            
+            <div class="row">
+                <div class="col-12">
+                    <div class="page-title-box d-flex align-items-center justify-content-between">
+                        <h4 class="mb-0">تعديل وكيل</h4>
+                        <div class="page-title-right">
+                            <ol class="breadcrumb m-0">
+                                <li class="breadcrumb-item active">تعديل</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="container mt-4">
+                <div class="row">
+                    <div class="col-lg-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="wizard">
+
+                                    <form method="post">
+                                        {% csrf_token %}
+                                        
+                                        {% if form.non_field_errors %}
+                                            <div class="alert alert-danger">
+                                                {% for error in form.non_field_errors %}
+                                                    <p>{{ error }}</p>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                {{ form.agent_name.label_tag }}
+                                                {{ form.agent_name }}
+                                                {% for error in form.agent_name.errors %}
+                                                    <div class="text-danger">{{ error }}</div>
+                                                {% endfor %}
+                                            </div>
+
+                                            <div class="col-md-6 mb-3">
+                                                {{ form.model_name.label_tag }}
+                                                {{ form.model_name }}
+                                                {% for error in form.model_name.errors %}
+                                                    <div class="text-danger">{{ error }}</div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            {{ form.system_context.label_tag }}
+                                            {{ form.system_context }}
+                                            {% for error in form.system_context.errors %}
+                                                <div class="text-danger">{{ error }}</div>
+                                            {% endfor %}
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-md-3 mb-3">
+                                                {{ form.temperature.label_tag }}
+                                                {{ form.temperature }}
+                                            </div>
+                                            <div class="col-md-3 mb-3">
+                                                {{ form.top_p.label_tag }}
+                                                {{ form.top_p }}
+                                            </div>
+                                            <div class="col-md-3 mb-3">
+                                                {{ form.frequency_penalty.label_tag }}
+                                                {{ form.frequency_penalty }}
+                                            </div>
+                                            <div class="col-md-3 mb-3">
+                                                {{ form.presence_penalty.label_tag }}
+                                                {{ form.presence_penalty }}
+                                            </div>
+                                        </div>
+
+                                        <button type="submit" class="btn btn-primary mt-3">حفظ التعديلات</button>
+                                    </form>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div> 
+    </div>
+</div>
+{% endblock %}

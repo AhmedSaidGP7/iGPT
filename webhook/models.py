@@ -82,7 +82,11 @@ class Message(models.Model):
 # هذا النموذج لتخزين ردود المساعد
 class Response(models.Model):
     # ربط الرد بالرسالة التي يرد عليها
-    message = models.ForeignKey(Message, on_delete=models.CASCADE)
+    message = models.OneToOneField(
+        Message, 
+        on_delete=models.CASCADE, 
+        primary_key=True 
+    )
     # محتوى الرد النصي
     content = models.TextField()
     # وقت إرسال الرد
@@ -92,12 +96,3 @@ class Response(models.Model):
         # الاعتماد على __str__ لنموذج Message لتجنب الأخطاء
         return f"Response to {self.message}" if self.message else "Response to a deleted message"
 
-# هذا النموذج لتخزين أجزاء قاعدة المعرفة (knowledge base chunks) وتضميناتها (embeddings)
-class KnowledgeBaseChunk(models.Model):
-    # محتوى النص الأصلي
-    content = models.TextField()
-    # التضمين كمتجه (vector)
-    embedding_vector = models.TextField()
-
-    def __str__(self):
-        return f"Chunk ID: {self.id}"

@@ -182,16 +182,38 @@
                                     </a>
                                 </li>
 
-                                <li class="nav-item">
-                                    <a class="nav-link" href="{% url 'knowledge:faq'%}">
-                                        <i class="uil-books me-2"></i> قاعدة المعرفة 
+                                
+                                 <li class="nav-item dropdown">
+                                    <a class="nav-link dropdown-toggle arrow-none" href="#" id="topnav-pages" role="button">
+                                        <i class="fas fa-plus-circle me-2"></i>قاعدة المعرفة<div class="arrow-down"></div>
                                     </a>
+                                    <div class="dropdown-menu" aria-labelledby="topnav-pages">
+
+                                        {% for agent in all_agents %}
+                                            <a href="{% url 'knowledge:faq' agent_id=agent.id %}" class="dropdown-item">{{ agent.agent_name }}</a>
+                                        {% empty %}
+                                            <a href="#" class="dropdown-item disabled">لا يوجد وكلاء متاحون</a>
+                                        {% endfor %}
+                                        
+                                      
+                                    </div>
                                 </li>
 
-                                <li class="nav-item">
-                                    <a class="nav-link" href="#">
-                                        <i class="uil-cog me-2"></i> إعدادت شخصية ليلى
+
+                                <li class="nav-item dropdown">
+                                    <a class="nav-link dropdown-toggle arrow-none" href="#" id="topnav-pages" role="button">
+                                        <i class="uil-cog me-2"></i>إعدادات شخصية الوكيل<div class="arrow-down"></div>
                                     </a>
+                                    <div class="dropdown-menu" aria-labelledby="topnav-pages">
+
+                                        {% for agent in all_agents %}
+                                            <a href="{% url 'core:view_agent' agent.id %}" class="dropdown-item">{{ agent.agent_name }}</a>
+                                        {% endfor %}
+                                            <a href="{% url 'core:add_agent' %}" class="dropdown-item">إضافة وكيل جديد</a>
+
+                                        
+                                      
+                                    </div>
                                 </li>
 
                                   <li class="nav-item">

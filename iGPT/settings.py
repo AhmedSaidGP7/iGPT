@@ -80,12 +80,16 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                
+                # The merged item is placed here
+                'core.context_processors.global_agents', 
             ],
         },
     },
 ]
 
 WSGI_APPLICATION = 'iGPT.wsgi.application'
+
 
 
 # Database

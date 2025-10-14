@@ -9,6 +9,11 @@ from openai import OpenAI
 from pydub import AudioSegment
 from django.conf import settings
 from knowledge.models import KnowledgeBase
+from core.models import OpenAISettings 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 # Initialize OpenAI client with API key from settings
 openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
@@ -27,7 +32,7 @@ def get_embeddings(text):
         print(f"Error getting embeddings: {e}")
         return None
 
-def find_most_similar_question(user_embedding, knowledge_base, top_n=3):
+def find_most_similar_question(user_embedding, knowledge_base, top_n=5):
     """
     Finds the most similar questions in the knowledge base to the user's question.
     """
@@ -51,40 +56,24 @@ def find_most_similar_question(user_embedding, knowledge_base, top_n=3):
     return similarities[:top_n]
 
 
-def generate_answer(user_question, context_questions, history=None):
+def generate_answer(user_question, context_questions, history, agent_settings: OpenAISettings):
     """
     Generates an answer using the provided context and conversation history.
     """
-    
-    # ✅ تم التعديل: `context_questions` أصبح قائمة من النصوص مباشرة
     context_text = "\n".join(context_questions)
-    
-    system_prompt = (
-         """
-         انتِ عائشة. ممثلة خدمة العملاء الخاصة بالدكتور محمد سعيد, شخص يتحدث بالعامية, وتتسمي بالتعاطف.
-         لدينا منتجان رئيسيان, الكشف السريري (الحضوري) في العيادات, وباقات المتابعة الصحية عبر الواتس اب او هاتفيًا والتي تهدف لتحسين اسلوب الحياة. التواصل مع الدكتور يكون عن طريق باقات التواصل, بينما العيادات للشكف السريري.
-         اياكي ثم اياكي ان تقومي بإعطاء معلومات غير مذكورة في السياق.
-سلوكك:
-1. لو العميل بدأ بالشكوى الصحية:
-   1.1 - اظهري بعض التعاطف بشكل يجعل العميل يشعر وكأنك تفهميه , وذلك في حال كان التعاطف هو السلوك المناسب فقط, يتضمن التعاطاف واطلبي الاسم والبلد إذا لم يُقدّموا مسبقًا.
-   1.2 - بعد توفر الاسم والبلد، نادِه باسمه وطمئنيه بأن الدكتور قام بالمساعدة على تحسين الحالة الصحية لحالات مشابهة, ولكن يجب ان يتطلع على الحالة ويستمع إليها اولًا حتى يستطيع تصميم حمية مناسبة, ثم اقترحي عليها عرض باقات المتابعة المتاحة لذلك
-   1.3 - بعد توفر الاسم والبلد، نادِه باسمه وارسلي الباقات المناسبة حرفيًا بالكامل بدون اقتصاص او تعديل.
-   1.4 - بعد اختيار الباقة، اسأليه عن طرق الدفع، وارسلي طريقة الدفع الخاصة ببلده أو PayPal إذا لم توجد.
-   1.5 - بعد الدفع، طلبي الاسم الكامل، رقم الهاتف، البريد، رقم التحويل، وصورة الإيصال، وتحققي من استلام كل البيانات.
-   1.6 - عند استلام الإيصال، أرسلي رسالة بتأكيد استلام الدفع وقومي بطلب منه تحميل تطبيق صحة وعافية والتسجيل فيه.
-   1.7 - بعد اتمام كل العمليات السابقة سيقوم احدى ممثلينا بالتواصل مع العميل لتنسيق معاد مع الدكتور.
-   لا تقومي ابدا بتأليف معلومات لم يتم ذكرها في السياق.
 
-2. إذا لم يبدأ العميل بالشكوى الصحية:
-   - ردّي فقط على أسئلته دون اتباع التسلسل الكامل.
-"""
-    )
-    
+    # OpenAI API settings
+    system_prompt = agent_settings.system_context
+    model_name = agent_settings.model_name
+    temperature = agent_settings.temperature
+    top_p = agent_settings.top_p
+    frequency_penalty = agent_settings.frequency_penalty
+    presence_penalty = agent_settings.presence_penalty
+
+    full_system_content = f"{system_prompt}\n\n[Knowledge Base Context Start]\n{context_text}\n[Knowledge Base Context End]"
+
     # Combine all messages for the API call
-    messages = [{"role": "system", "content": system_prompt}]
-    
-    # Add knowledge base context
-    messages.append({"role": "user", "content": f"Knowledge Base Context:\n{context_text}"})
+    messages = [{"role": "system", "content": full_system_content}]
     
     # Add conversation history
     if history:
@@ -92,15 +81,16 @@ def generate_answer(user_question, context_questions, history=None):
         
     # Add the current user question
     messages.append({"role": "user", "content": user_question})
-    
+
+ 
     try:
         response = openai_client.chat.completions.create(
             model="gpt-5-chat-latest",  # You can change this to a different model if needed
             messages=messages,
             temperature=0.7,
-            top_p=1,
-            frequency_penalty=0,
-            presence_penalty=0
+            top_p=top_p,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -171,3 +161,60 @@ def transcribe_audio_from_base64(base64_audio, mimetype="audio/ogg"):
     except Exception as e:
         print(f"❌ Error transcribing audio from base64: {e}")
         return "عذراً، حدث خطأ أثناء معالجة الرسالة الصوتية. هل يمكنك كتابة سؤالك بدلاً من ذلك؟"
+
+
+
+
+def analyze_image_from_base64(base64_image: str, user_question: str) -> str:
+    """
+    Analyzes an image provided as a base64 string using GPT-4 Vision API.
+    """
+    if not openai_client:
+        return "Sorry, the AI service is not properly configured."
+    
+    if not base64_image:
+        logger.warning("No Base64 image data provided for analysis.")
+        return "لم يتم العثور على بيانات صورة لتحليلها."
+    
+    # تنظيف أي header من base64
+    if base64_image.startswith('data:'):
+        base64_image = base64_image.split(',', 1)[-1]
+        logger.info("Removed Data URI header from base64 string.")
+    
+    mime_type = "image/jpeg"
+    image_source = {"url": f"data:{mime_type};base64,{base64_image}"}
+    
+    logger.info(f"Using Base64 string of length {len(base64_image)} for Vision API analysis.")
+    
+    # تجهيز الرسالة
+    content_parts = [
+        {
+            "type": "text",
+            "text": user_question.strip() if user_question else "من فضلك راجع الصورة وأجب كما لو رأيتها مباشرة."
+        },
+        {
+            "type": "image_url",
+            "image_url": image_source
+        }
+    ]
+    
+    try:
+        response = openai_client.chat.completions.create(
+            model="gpt-4.1",  # ← لازم موديل Vision
+            messages=[
+                {
+                    "role": "user",
+                    "content": content_parts
+                }
+            ],
+            max_completion_tokens=500,
+        )
+        
+        analysis_text = response.choices[0].message.content
+        img_returned = f"[ تنبيه: الرد التالي هو نتيجة تحليل لصورة تم إرسالها وإرجاع النص التحليلي, تعامل معه كأنك رأيت الصورة نفسها وليس تحليل لها, كأنك شوفتها بعينك.]\n{analysis_text}"
+        logger.info(f"Vision API analysis successful. Response length: {len(analysis_text)}.")
+        return img_returned
+
+    except Exception as e:
+        logger.error(f"❌ Error analyzing image with Vision API: {e}", exc_info=True)
+        return "عذراً، حدث خطأ أثناء تحليل الصورة. هل يمكنك وصفها لي أو إرسالها مرة أخرى؟"

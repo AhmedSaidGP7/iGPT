@@ -1,0 +1,53 @@
+{% extends "core/layout.html" %}
+{% block title %}عرض إعدادات الوكيل{% endblock %}
+
+{% block body %}
+<div class="main-content">
+    <div class="page-content">
+        <div class="container-fluid">
+            
+    <h3>إعدادات الوكيل: {{ agent.agent_name }}</h3>
+    <ul class="list-group mt-3">
+        <li class="list-group-item text-end "><strong>Model:</strong> {{ agent.model_name }}</li>
+        <li class="list-group-item"><strong>اسم الوكيل:</strong> {{ agent.agent_name }}</li>
+        <li class="list-group-item"><strong>تعليمات للوكيل:</strong> <br> {{ agent.system_context }}</li>
+        <li class="list-group-item text-end"><strong>Temperature:</strong> {{ agent.temperature }}</li>
+        <li class="list-group-item text-end"><strong>Top P:</strong> {{ agent.top_p }}</li>
+        <li class="list-group-item text-end"><strong>Frequency Penalty:</strong> {{ agent.frequency_penalty }}</li>
+        <li class="list-group-item text-end"><strong>Presence Penalty:</strong> {{ agent.presence_penalty }}</li>
+        <li class="list-group-item text-end"><strong>Updated At:</strong> {{ agent.updated_at }}</li>
+    </ul>
+    <div class="row">
+    <a href="{% url 'core:edit_agent' agent.id %}" class="btn btn-primary mt-3">تعديل الوكيل</a>
+    </div>
+    <div class="row">
+       
+        <button class="mt-4 mb-4 btn btn-light" 
+        onclick="copyWebhookUrl('{{ webhook_url }}')"> 
+        <i class="bx bx-share-alt font-size-20"></i> نسخ رابط Webhook 
+    </button>
+    </div>
+
+
+
+</div>
+</div>
+</div>
+<script>
+function copyWebhookUrl(url) {
+    if (!url) {
+        alert("الرابط غير متوفر للنسخ!");
+        return;
+    }
+    navigator.clipboard.writeText(url)
+        .then(() => {
+            alert("تم نسخ رابط الـ Webhook!");
+        })
+        .catch(err => {
+            console.error("حدث خطأ أثناء النسخ:", err);
+        });
+}
+</script>
+
+
+{% endblock %}

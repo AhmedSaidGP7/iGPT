@@ -3,6 +3,7 @@ from . import views
 
 app_name = "webhook"
 urlpatterns = [
-    path("", views.webhook, name="index"),
+    path('<int:agent_id>/', views.webhook, name='agent_webhook'),
+    #path("", views.webhook, name="index"),
    
 ]

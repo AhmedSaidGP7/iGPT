@@ -4,20 +4,40 @@
 
 {% block body %}
 <div class="main-content">
-  <div class="page-content">
-    <div class="container-fluid">
-      <h4>تعديل قطعة معرفية</h4>
-      <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        <div class="mb-3">
-          {{ form.brief.label_tag }} {{ form.brief }}
+    <div class="page-content">
+        <div class="container-fluid">
+
+            <h4 class="mb-4">تعديل قطعة معرفية للوكيل: {{ current_agent.agent_name }}</h4>
+
+            <form method="post" enctype="multipart/form-data" 
+                  action="{% url 'knowledge:edit_question' agent_id=current_agent.id pk=kb.id %}">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div class="mb-3">
+                    {{ form.brief.label_tag }} 
+                    {{ form.brief }}
+                    {% if form.brief.errors %}
+                        <div class="text-danger">{{ form.brief.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="mb-3">
+                    {{ form.question.label_tag }} 
+                    {{ form.question }}
+                    {% if form.question.errors %}
+                        <div class="text-danger">{{ form.question.errors }}</div>
+                    {% endif %}
+                </div>
+                <button type="submit" class="btn btn-primary">حفظ التعديلات</button>
+            </form>
         </div>
-        <div class="mb-3">
-          {{ form.question.label_tag }} {{ form.question }}
-        </div>
-        <button type="submit" class="btn btn-primary">حفظ التعديلات</button>
-      </form>
     </div>
-  </div>
 </div>
 {% endblock %}

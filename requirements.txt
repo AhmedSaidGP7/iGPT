@@ -7,3 +7,4 @@ pydub
 numpy
 whitenoise
 psycopg2-binary  # لو هتستخدم PostgreSQL
+django-pgvector
