@@ -22,7 +22,7 @@ from django.db import transaction
 logger = logging.getLogger(__name__)
 
 # Debounce settings
-DEBOUNCE_TIME = 2 
+DEBOUNCE_TIME = 5 
 _user_buffers = {} 
 
 
@@ -37,7 +37,7 @@ def send_message_to_client(jid: str, text: str, instance_id: str, evolution_key:
         payload = {
             "number": jid.split('@')[0],
             "text": text,
-            "delay": 0,
+            "delay": 7000,
             "linkPreview": True,
         }
         
