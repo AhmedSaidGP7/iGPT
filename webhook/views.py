@@ -42,7 +42,7 @@ def send_message_to_client(jid: str, text: str, instance_id: str, evolution_key:
         }
         
         # Added timeout for safety
-        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        response = requests.post(url, json=payload, headers=headers, timeout=(5, 15))
         response.raise_for_status()
         
         logger.info(f"✅ API SUCCESS: Message sent to {jid}. Status: {response.status_code}.")
